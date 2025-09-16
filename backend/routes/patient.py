@@ -4,25 +4,30 @@ from services.prediction_service import prediction_service
 import pandas as pd
 import io
 import logging
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from functools import wraps
 
 patient_bp = Blueprint('patient', __name__)
 logger = logging.getLogger(__name__)
 
 def require_auth(f):
-    """Decorator to require authentication with better debugging"""
+    """Decorator to require authentication (JWT or session) with better debugging"""
+    @wraps(f)
+    @jwt_required(optional=True)
     def decorated_function(*args, **kwargs):
-        user_id = session.get('user_id')
+        jwt_id = get_jwt_identity()
+        session_id = session.get('user_id')
+        user_id = jwt_id or session_id
         user_role = session.get('user_role')
 
-        # Debug session info
-        logger.info(f"Auth check - Session ID: {user_id}, Role: {user_role}")
+        logger.info(f"Auth check - JWT ID: {jwt_id}, Session ID: {session_id}, Using: {user_id}, Role: {user_role}")
         logger.info(f"Session keys: {list(session.keys())}")
 
         if not user_id:
-            logger.warning("Authentication failed - no user_id in session")
+            logger.warning("Authentication failed - no user id from JWT or session")
             return jsonify({'error': 'Authentication required'}), 401
+        # Stash for handlers (no g import to keep minimal change)
         return f(*args, **kwargs)
-    decorated_function.__name__ = f.__name__
     return decorated_function
 
 @patient_bp.route('/predict', methods=['POST'])
@@ -76,7 +81,7 @@ def make_prediction():
             return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
 
         # Save prediction to database
-        user_id = session.get('user_id')
+        user_id = get_jwt_identity() or session.get('user_id')
         if user_id:
             try:
                 prediction_record = Prediction(
@@ -108,7 +113,7 @@ def make_prediction():
 def get_my_predictions():
     """Get all predictions for the current user"""
     try:
-        user_id = session.get('user_id')
+        user_id = get_jwt_identity() or session.get('user_id')
         predictions = Prediction.query.filter_by(user_id=user_id).order_by(Prediction.created_at.desc()).all()
         predictions_data = [pred.to_dict() for pred in predictions]
 
@@ -125,7 +130,7 @@ def get_my_predictions():
 def get_patient_dashboard():
     """Get patient dashboard data"""
     try:
-        user_id = session.get('user_id')
+        user_id = get_jwt_identity() or session.get('user_id')
         user = User.query.get(user_id)
 
         if not user:
@@ -168,12 +173,14 @@ def get_patient_dashboard():
 def get_prescriptions(patient_id):
     """Get prescriptions for a patient"""
     try:
-        user_id = session.get('user_id')
-
+        user_id = get_jwt_identity() or session.get('user_id')
+        user_id = int(user_id) if user_id is not None else None
+        patient_id = int(patient_id)
         # Check if user is accessing their own prescriptions or is a doctor
         user = User.query.get(user_id)
         if user.role != 'doctor' and user_id != patient_id:
-            return jsonify({'error': 'Unauthorized access'}), 403
+            logger.warning(f"Unauthorized access: user_id={user_id}, role={user.role}, tried to access patient_id={patient_id}")
+            return jsonify({'error': f'Unauthorized access: user_id={user_id}, role={user.role}, tried to access patient_id={patient_id}'}), 403
 
         prescriptions = Prescription.query.filter_by(patient_id=patient_id)\
                                          .order_by(Prescription.prescribed_at.desc()).all()

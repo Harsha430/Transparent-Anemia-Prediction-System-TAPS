@@ -212,45 +212,116 @@ class PredictionService:
         }
 
     def _generate_fallback_visualizations(self, risk_factors, features):
-        """Generate visualizations for fallback mode"""
-        if not PLOTTING_AVAILABLE:
-            return {}
+        """Generate visualizations for fallback mode with improved error handling"""
+        visualizations = {}
 
         try:
-            visualizations = {}
+            # Always create a simple HTML-based visualization as fallback
+            html_chart = self._create_html_chart(risk_factors)
+            visualizations['feature_importance_html'] = html_chart
 
-            # Create feature importance chart
-            feature_names = [f['feature'] for f in risk_factors]
-            contributions = [f['contribution'] for f in risk_factors]
+            # Try to create Plotly chart if available
+            if PLOTTING_AVAILABLE:
+                try:
+                    # Create feature importance chart
+                    feature_names = [f['feature'] for f in risk_factors]
+                    contributions = [f['contribution'] for f in risk_factors]
 
-            fig = go.Figure()
-            colors = ['rgba(255, 65, 54, 0.8)' if c > 0 else 'rgba(30, 136, 229, 0.8)' for c in contributions]
+                    fig = go.Figure()
+                    colors = ['rgba(255, 65, 54, 0.8)' if c > 0 else 'rgba(30, 136, 229, 0.8)' for c in contributions]
 
-            fig.add_trace(go.Bar(
-                x=feature_names,
-                y=[abs(c) for c in contributions],
-                marker_color=colors,
-                text=[f"Impact: {c:+.2f}" for c in contributions],
-                textposition='outside'
-            ))
+                    fig.add_trace(go.Bar(
+                        x=feature_names,
+                        y=[abs(c) for c in contributions],
+                        marker_color=colors,
+                        text=[f"Impact: {c:+.2f}" for c in contributions],
+                        textposition='outside'
+                    ))
 
-            fig.update_layout(
-                title='Feature Contributions to Anemia Risk (Rule-Based Analysis)',
-                xaxis_title='Lab Parameters',
-                yaxis_title='Risk Contribution',
-                height=400
-            )
+                    fig.update_layout(
+                        title='Feature Contributions to Anemia Risk (Rule-Based Analysis)',
+                        xaxis_title='Lab Parameters',
+                        yaxis_title='Risk Contribution',
+                        height=400,
+                        plot_bgcolor='white',
+                        paper_bgcolor='white'
+                    )
 
-            # Convert to base64
-            img_bytes = pio.to_image(fig, format='png', width=800, height=400)
-            img_base64 = base64.b64encode(img_bytes).decode('utf-8')
-            visualizations['feature_importance'] = f"data:image/png;base64,{img_base64}"
+                    # Convert to base64
+                    img_bytes = pio.to_image(fig, format='png', width=800, height=400)
+                    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+                    visualizations['feature_importance'] = f"data:image/png;base64,{img_base64}"
+
+                except Exception as plotly_error:
+                    logger.warning(f"Plotly visualization failed: {plotly_error}")
+                    # Keep the HTML fallback
 
             return visualizations
 
         except Exception as e:
-            logger.error(f"Fallback visualization generation failed: {str(e)}")
-            return {}
+            logger.error(f"All visualization generation failed: {str(e)}")
+            # Return a simple text-based visualization
+            return {
+                'feature_importance_text': self._create_text_visualization(risk_factors)
+            }
+
+    def _create_html_chart(self, risk_factors):
+        """Create a simple HTML-based chart visualization"""
+        html = """
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto;">
+            <h3 style="text-align: center; color: #333; margin-bottom: 20px;">Feature Contributions to Anemia Risk</h3>
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+        """
+
+        # Sort risk factors by absolute contribution
+        sorted_factors = sorted(risk_factors, key=lambda x: abs(x['contribution']), reverse=True)
+
+        for factor in sorted_factors:
+            contribution = factor['contribution']
+            percentage = abs(contribution) * 100
+            color = '#dc3545' if contribution > 0 else '#007bff'
+            impact_text = 'Increases Risk' if contribution > 0 else 'Decreases Risk'
+
+            html += f"""
+                <div style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 6px; border-left: 4px solid {color};">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: #333;">{factor['feature']}</strong>
+                            <div style="color: #666; font-size: 0.9em;">Value: {factor['value']}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="color: {color}; font-weight: bold;">{impact_text}</div>
+                            <div style="color: #666; font-size: 0.9em;">{percentage:.1f}% impact</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px; background: #e9ecef; height: 8px; border-radius: 4px;">
+                        <div style="background: {color}; height: 100%; width: {min(percentage * 2, 100)}%; border-radius: 4px;"></div>
+                    </div>
+                </div>
+            """
+
+        html += """
+            </div>
+            <div style="text-align: center; margin-top: 15px; color: #666; font-size: 0.9em;">
+                Interactive visualization showing how each lab parameter contributes to the anemia risk assessment
+            </div>
+        </div>
+        """
+
+        return html
+
+    def _create_text_visualization(self, risk_factors):
+        """Create a simple text-based visualization as ultimate fallback"""
+        text = "Feature Contributions to Anemia Risk:\n\n"
+
+        sorted_factors = sorted(risk_factors, key=lambda x: abs(x['contribution']), reverse=True)
+
+        for i, factor in enumerate(sorted_factors, 1):
+            contribution = factor['contribution']
+            impact_text = "increases risk" if contribution > 0 else "decreases risk"
+            text += f"{i}. {factor['feature']} (value: {factor['value']}) - {impact_text} by {abs(contribution)*100:.1f}%\n"
+
+        return text
 
     def _get_clinical_interpretation(self, features, prediction_proba):
         """Provide comprehensive clinical interpretation"""

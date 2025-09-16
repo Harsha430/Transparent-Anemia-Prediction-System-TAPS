@@ -3,6 +3,7 @@ from models import db, User
 import logging
 import secrets
 import string
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 
 auth_bp = Blueprint('auth', __name__)
 logger = logging.getLogger(__name__)
@@ -29,17 +30,19 @@ def login():
             logger.warning(f"Login failed for email: {data.get('email')}")
             return jsonify({'error': 'Invalid email or password'}), 401
 
-        # Store user info in session
+        # Store user info in session (optional for backward compatibility)
         session['user_id'] = user.id
         session['user_role'] = user.role
         session.permanent = True
 
-        logger.info(f"User {user.email} logged in successfully with role {user.role}")
+        # Issue JWT token
+        access_token = create_access_token(identity=str(user.id), additional_claims={'role': user.role})
 
         return jsonify({
             'message': 'Login successful',
             'user': user.to_dict(),
-            'authenticated': True
+            'authenticated': True,
+            'access_token': access_token
         }), 200
 
     except Exception as e:
@@ -47,10 +50,11 @@ def login():
         return jsonify({'error': str(e)}), 500
 
 @auth_bp.route('/profile', methods=['GET'])
+@jwt_required(optional=True)
 def get_profile():
     """Get current user profile from session"""
     try:
-        user_id = session.get('user_id')
+        user_id = get_jwt_identity() or session.get('user_id')
         user_role = session.get('user_role')
 
         logger.info(f"Profile request - Session ID: {user_id}, Role: {user_role}")
@@ -116,17 +120,20 @@ def register_doctor():
         db.session.add(doctor)
         db.session.commit()
 
-        # Auto-login the new doctor
+        # Auto-login the new doctor (session) and provide JWT
         session['user_id'] = doctor.id
         session['user_role'] = doctor.role
         session.permanent = True
+
+        access_token = create_access_token(identity=str(doctor.id), additional_claims={'role': doctor.role})
 
         logger.info(f"New doctor registered: {doctor.email}")
 
         return jsonify({
             'message': 'Doctor registered successfully',
             'user': doctor.to_dict(),
-            'authenticated': True
+            'authenticated': True,
+            'access_token': access_token
         }), 201
 
     except Exception as e:

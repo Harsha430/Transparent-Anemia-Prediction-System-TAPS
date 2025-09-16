@@ -9,6 +9,7 @@ from routes.patient import patient_bp
 from services.prediction_service import prediction_service
 import logging
 import os
+from flask_jwt_extended import JWTManager
 
 def create_app():
     app = Flask(__name__)
@@ -24,13 +25,21 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     migrate = Migrate(app, db)
+    jwt = JWTManager(app)
 
     # CORS configuration - Enable credentials for session support
+    # Always allow both localhost:3000 and localhost:3001 for development
+    allowed_origins = os.getenv('CORS_ORIGINS')
+    if allowed_origins:
+        allowed_origins = [o.strip() for o in allowed_origins.split(',') if o.strip()]
+    else:
+        allowed_origins = ['http://localhost:3000', 'http://localhost:3001']
     CORS(app,
-         origins=['http://localhost:3000'],
+         origins=allowed_origins,
          supports_credentials=True,
          allow_headers=['Content-Type', 'Authorization'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+    app.logger.info(f"CORS enabled for origins: {allowed_origins}")
 
     # Configure logging
     logging.basicConfig(level=logging.INFO)

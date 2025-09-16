@@ -10,6 +10,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     JWT_ACCESS_TOKEN_EXPIRES = False  # Tokens don't expire for demo
     MODEL_PATH = os.environ.get('MODEL_PATH') or './anemia_dl_model.h5'
+    # CORS_ORIGINS: Comma-separated list of allowed origins for CORS (e.g. 'http://localhost:3000,http://localhost:3001')
+    # If not set, defaults to http://localhost:3000 for development. See app.py for fallback logic.
     CORS_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:3000').split(',')
 
     # Feature preprocessing parameters (derived from typical anemia datasets)

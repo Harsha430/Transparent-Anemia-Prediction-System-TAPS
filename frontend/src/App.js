@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/LoginPage';
 import PatientDashboard from './components/PatientDashboard';
@@ -29,103 +29,123 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   return children;
 };
 
-// Main App Component
+// Main App Content (inside Router)
 const AppContent = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const authPaths = ['/login', '/register-doctor'];
+  const hideNav = authPaths.includes(location.pathname);
 
   return (
-    <Router>
-      <div className="App">
-        {user && <Navbar />}
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register-doctor" element={<RegisterDoctor />} />
+    <div className="App">
+      {!hideNav && user && <Navbar />}
+      <Routes>
+        {/* Public Routes */}
+        <Route
+          path="/login"
+          element={
+            user ? (
+              <Navigate to={user.role === 'doctor' ? '/doctor' : '/patient'} replace />
+            ) : (
+              <LoginPage />
+            )
+          }
+        />
+        <Route
+          path="/register-doctor"
+          element={
+            user ? (
+              <Navigate to={user.role === 'doctor' ? '/doctor' : '/patient'} replace />
+            ) : (
+              <RegisterDoctor />
+            )
+          }
+        />
 
-          {/* Protected Routes */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                {user?.role === 'doctor' ? <DoctorDashboard /> : <PatientDashboard />}
-              </ProtectedRoute>
-            }
-          />
+        {/* Patient Routes */}
+        <Route
+          path="/patient"
+          element={
+            <ProtectedRoute allowedRoles={['user', 'patient']}>
+              <PatientDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patient/predict"
+          element={
+            <ProtectedRoute allowedRoles={['user', 'patient']}>
+              <PredictionForm />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/patient/prescriptions"
+          element={
+            <ProtectedRoute allowedRoles={['user', 'patient']}>
+              <PrescriptionView />
+            </ProtectedRoute>
+          }
+        />
 
-          <Route
-            path="/patient"
-            element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <PatientDashboard />
-              </ProtectedRoute>
-            }
-          />
+        {/* Doctor Routes */}
+        <Route
+          path="/doctor/*"
+          element={
+            <ProtectedRoute allowedRoles={['doctor']}>
+              <DoctorDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-          <Route
-            path="/patient/predict"
-            element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <PredictionForm />
-              </ProtectedRoute>
-            }
-          />
+        {/* General Dashboard */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              {user?.role === 'doctor' ? <DoctorDashboard /> : <PatientDashboard />}
+            </ProtectedRoute>
+          }
+        />
 
-          <Route
-            path="/patient/prescriptions"
-            element={
-              <ProtectedRoute allowedRoles={['user']}>
-                <PrescriptionView />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/doctor"
-            element={
-              <ProtectedRoute allowedRoles={['doctor']}>
-                <DoctorDashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          {/* Default redirects */}
-          <Route
-            path="/"
-            element={
-              user ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-
-          <Route
-            path="/unauthorized"
-            element={
-              <div className="flex justify-center items-center h-screen">
-                <div className="text-center">
-                  <h1 className="text-2xl font-bold text-red-600">Unauthorized</h1>
-                  <p className="text-gray-600">You don't have permission to access this page.</p>
-                </div>
+        {/* Unauthorized */}
+        <Route
+          path="/unauthorized"
+          element={
+            <div className="flex justify-center items-center h-screen">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-red-600">Unauthorized</h1>
+                <p className="text-gray-600">You don't have permission to access this page.</p>
               </div>
-            }
-          />
+            </div>
+          }
+        />
 
-          {/* Catch all route */}
-          <Route
-            path="*"
-            element={<Navigate to="/" replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+        {/* Root Redirect */}
+        <Route
+          path="/"
+          element={
+            user ? (
+              <Navigate to={user.role === 'doctor' ? '/doctor' : '/patient'} replace />
+            ) : (
+              <Navigate to="/login" replace />
+            )
+          }
+        />
+
+        {/* Catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
   );
 };
 
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <Router>
+        <AppContent />
+      </Router>
     </AuthProvider>
   );
 }

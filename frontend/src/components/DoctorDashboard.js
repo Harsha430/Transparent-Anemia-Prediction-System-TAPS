@@ -1,415 +1,209 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
-const DoctorDashboard = () => {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Routes>
-        <Route path="/" element={<DoctorHome />} />
-        <Route path="/patients" element={<PatientList />} />
-        <Route path="/patients/:patientId/predictions" element={<PatientPredictions />} />
-        <Route path="/patients/:patientId/prescriptions" element={<PatientPrescriptions />} />
-      </Routes>
-    </div>
-  );
-};
 
+/**************** Wrapper Router ****************/
+const DoctorDashboard = () => (
+  <div className="min-h-screen bg-gray-50">
+    <Routes>
+      <Route path="/" element={<DoctorHome />} />
+      <Route path="/patients" element={<PatientList />} />
+      <Route path="/patients/:patientId/predictions" element={<PatientPredictions />} />
+      <Route path="/patients/:patientId/prescriptions" element={<PatientPrescriptions />} />
+    </Routes>
+  </div>
+);
+
+/**************** Home (overview) ****************/
 const DoctorHome = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({ patients: 0, predictions: 0 });
   const [recentPatients, setRecentPatients] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
+  useEffect(() => { user?.role === 'doctor' ? load() : setLoading(false); }, [user]);
 
-  const fetchDashboardData = async () => {
+  const load = async () => {
     try {
-      const response = await api.getPatients();
-      const patients = response.data.patients;
-      setRecentPatients(patients.slice(0, 5));
-
-      const totalPredictions = patients.reduce((sum, patient) => sum + patient.prediction_count, 0);
-      setStats({ patients: patients.length, predictions: totalPredictions });
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
+      const { data } = await api.getPatients();
+      const pts = data.patients || [];
+      setRecentPatients(pts.slice(0, 5));
+      const totalPreds = pts.reduce((s,p)=>s + (p.prediction_count || 0), 0);
+      setStats({ patients: pts.length, predictions: totalPreds });
+    } catch (e) { console.error('Dash fetch fail', e); } finally { setLoading(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading dashboard...</div>
-      </div>
-    );
-  }
+  if (!user) return <Centered msg="Please log in." />;
+  if (user.role !== 'doctor') return <Centered msg="Unauthorized." />;
+  if (loading) return <Centered msg="Loading dashboard..." />;
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Doctor Dashboard</h1>
-
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">P</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-500">Total Patients</div>
-                <div className="text-2xl font-bold text-gray-900">{stats.patients}</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="card">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold">A</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <div className="text-sm font-medium text-gray-500">Total Predictions</div>
-                <div className="text-2xl font-bold text-gray-900">{stats.predictions}</div>
-              </div>
-            </div>
-          </div>
+          <StatCard label="Total Patients" value={stats.patients} color="blue" short="P" />
+          <StatCard label="Total Predictions" value={stats.predictions} color="green" short="A" />
         </div>
-
-        {/* Quick Actions */}
         <div className="card mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-4">
-            <button
-              onClick={() => window.location.href = '/doctor/patients?action=register'}
-              className="btn-primary"
-            >
-              Register New Patient
-            </button>
-            <button
-              onClick={() => window.location.href = '/doctor/patients'}
-              className="btn-secondary"
-            >
-              View All Patients
-            </button>
+            <button onClick={()=>navigate('/doctor/patients?action=register')} className="btn-primary">Register New Patient</button>
+            <button onClick={()=>navigate('/doctor/patients')} className="btn-secondary">View All Patients</button>
           </div>
         </div>
-
-        {/* Recent Patients */}
         <div className="card">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Patients</h2>
-          {recentPatients.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Predictions
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {recentPatients.map((patient) => (
-                    <tr key={patient.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {patient.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.prediction_count || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => window.location.href = `/doctor/patients/${patient.id}/predictions`}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View Predictions
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `/doctor/patients/${patient.id}/prescriptions`}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Prescriptions
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-gray-500">No patients registered yet.</p>
-          )}
+          {recentPatients.length ? (
+            <SimpleTable rows={recentPatients} onPred={id=>navigate(`/doctor/patients/${id}/predictions`)} onPres={id=>navigate(`/doctor/patients/${id}/prescriptions`)} />
+          ) : <p className="text-gray-500">No patients registered yet.</p>}
         </div>
       </div>
     </div>
   );
 };
 
+/**************** Patient List ****************/
 const PatientList = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [registerForm, setRegisterForm] = useState({
-    patient_name: '',
-    patient_email: '',
-    gender: '',
-    dob: ''
-  });
-  const [registerError, setRegisterError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ patient_name:'', patient_email:'', gender:'', dob:'' });
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchPatients();
-    // Check if we should show register form
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('action') === 'register') {
-      setShowRegisterForm(true);
-    }
-  }, []);
+  useEffect(()=>{ user?.role==='doctor' ? init() : setLoading(false); },[user]);
 
-  const fetchPatients = async () => {
-    try {
-      const response = await api.getPatients();
-      setPatients(response.data.patients);
-    } catch (error) {
-      console.error('Error fetching patients:', error);
-    } finally {
-      setLoading(false);
-    }
+  const init = async () => {
+    const qp = new URLSearchParams(window.location.search);
+    if (qp.get('action')==='register') setShowForm(true);
+    await loadPatients();
   };
 
-  const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    setRegisterError('');
-
-    try {
-      await api.registerPatient(registerForm);
-      setShowRegisterForm(false);
-      setRegisterForm({ patient_name: '', patient_email: '', gender: '', dob: '' });
-      fetchPatients(); // Refresh the list
-    } catch (error) {
-      setRegisterError(error.response?.data?.error || 'Registration failed');
-    }
+  const loadPatients = async () => {
+    try { const { data } = await api.getPatients(); setPatients(data.patients || []); }
+    catch(e){ console.error('Patients fetch fail', e);} finally { setLoading(false); }
   };
 
-  const exportPredictions = async (patientId) => {
-    try {
-      const response = await api.exportPredictions(patientId);
-      const blob = new Blob([response.data], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `patient_${patientId}_predictions.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
+  const submit = async e => {
+    e.preventDefault(); setError('');
+    try { await api.registerPatient(form); setShowForm(false); setForm({patient_name:'',patient_email:'',gender:'',dob:''}); await loadPatients(); }
+    catch(e){ setError(e.response?.data?.error || 'Registration failed'); }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="text-lg">Loading patients...</div>
-      </div>
-    );
-  }
+  const exportPredictions = async id => {
+    try { const res = await api.exportPredictions(id); const blob=new Blob([res.data],{type:'text/csv'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`patient_${id}_predictions.csv`; a.click(); URL.revokeObjectURL(url);} catch(e){ console.error('Export failed', e);} };
+
+  if (!user) return <Centered msg="Please log in." />;
+  if (user.role !== 'doctor') return <Centered msg="Unauthorized." />;
+  if (loading) return <Centered msg="Loading patients..." />;
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-900">Patients</h1>
-          <button
-            onClick={() => setShowRegisterForm(true)}
-            className="btn-primary"
-          >
-            Register New Patient
-          </button>
+          <button onClick={()=>setShowForm(true)} className="btn-primary">Register New Patient</button>
         </div>
-
-        {/* Register Patient Modal */}
-        {showRegisterForm && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Patient</h3>
-              <form onSubmit={handleRegisterSubmit}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Patient Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      className="form-input"
-                      value={registerForm.patient_name}
-                      onChange={(e) => setRegisterForm({...registerForm, patient_name: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      className="form-input"
-                      value={registerForm.patient_email}
-                      onChange={(e) => setRegisterForm({...registerForm, patient_email: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Gender
-                    </label>
-                    <select
-                      className="form-input"
-                      value={registerForm.gender}
-                      onChange={(e) => setRegisterForm({...registerForm, gender: e.target.value})}
-                    >
-                      <option value="">Select Gender</option>
-                      <option value="0">Female</option>
-                      <option value="1">Male</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      Date of Birth (Optional)
-                    </label>
-                    <input
-                      type="date"
-                      className="form-input"
-                      value={registerForm.dob}
-                      onChange={(e) => setRegisterForm({...registerForm, dob: e.target.value})}
-                    />
-                  </div>
-                </div>
-
-                {registerError && (
-                  <div className="alert-error mt-4">
-                    {registerError}
-                  </div>
-                )}
-
-                <div className="flex gap-4 mt-6">
-                  <button type="submit" className="btn-primary">
-                    Register
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowRegisterForm(false)}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
+        {showForm && (
+          <div className="card mb-8">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Patient</h3>
+            <form onSubmit={submit} className="space-y-4">
+              <Input label="Patient Name" value={form.patient_name} onChange={v=>setForm({...form,patient_name:v})} required />
+              <Input label="Email" type="email" value={form.patient_email} onChange={v=>setForm({...form,patient_email:v})} required />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                <select className="form-input" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})}>
+                  <option value="">Select Gender</option>
+                  <option value="0">Female</option>
+                  <option value="1">Male</option>
+                </select>
+              </div>
+              <Input label="Date of Birth (Optional)" type="date" value={form.dob} onChange={v=>setForm({...form,dob:v})} />
+              {error && <div className="alert-error">{error}</div>}
+              <div className="flex gap-4 pt-2">
+                <button type="submit" className="btn-primary">Register</button>
+                <button type="button" onClick={()=>setShowForm(false)} className="btn-secondary">Cancel</button>
+              </div>
+            </form>
           </div>
         )}
-
-        {/* Patients Table */}
         <div className="card">
-          {patients.length > 0 ? (
+          {patients.length ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Predictions
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Registered
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
+                <thead className="bg-gray-50"><tr><Th>Name</Th><Th>Email</Th><Th>Predictions</Th><Th>Registered</Th><Th>Actions</Th></tr></thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {patients.map((patient) => (
-                    <tr key={patient.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {patient.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {patient.prediction_count || 0}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(patient.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => window.location.href = `/doctor/patients/${patient.id}/predictions`}
-                          className="text-blue-600 hover:text-blue-900"
-                        >
-                          View
-                        </button>
-                        <button
-                          onClick={() => window.location.href = `/doctor/patients/${patient.id}/prescriptions`}
-                          className="text-green-600 hover:text-green-900"
-                        >
-                          Prescriptions
-                        </button>
-                        <button
-                          onClick={() => exportPredictions(patient.id)}
-                          className="text-purple-600 hover:text-purple-900"
-                        >
-                          Export
-                        </button>
-                      </td>
+                  {patients.map(p => (
+                    <tr key={p.id}>
+                      <Td>{p.name}</Td>
+                      <Td>{p.email}</Td>
+                      <Td>{p.prediction_count || 0}</Td>
+                      <Td>{p.created_at ? new Date(p.created_at).toLocaleDateString() : '-'}</Td>
+                      <Td>
+                        <button onClick={()=>navigate(`/doctor/patients/${p.id}/predictions`)} className="text-blue-600 hover:text-blue-900 mr-3">Predictions</button>
+                        <button onClick={()=>navigate(`/doctor/patients/${p.id}/prescriptions`)} className="text-green-600 hover:text-green-900 mr-3">Prescriptions</button>
+                        <button onClick={()=>exportPredictions(p.id)} className="text-purple-600 hover:text-purple-900">Export</button>
+                      </Td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No patients registered yet.</p>
-          )}
+          ) : <p className="text-gray-500 text-center py-8">No patients registered yet.</p>}
         </div>
       </div>
     </div>
   );
 };
 
-const PatientPredictions = () => {
-  // Placeholder for patient predictions view
-  return <div>Patient Predictions Component</div>;
-};
+/**************** Placeholders ****************/
+const PatientPredictions = () => { const { patientId } = useParams(); return <div className="p-6">Predictions for patient #{patientId}</div>; };
+const PatientPrescriptions = () => { const { patientId } = useParams(); return <div className="p-6">Prescriptions for patient #{patientId}</div>; };
 
-const PatientPrescriptions = () => {
-  // Placeholder for patient prescriptions management
-  return <div>Patient Prescriptions Component</div>;
+/**************** Helpers ****************/
+const Centered = ({ msg }) => (<div className="flex justify-center items-center h-64"><div className="text-lg">{msg}</div></div>);
+const StatCard = ({ label, value, color, short }) => {
+  const colors = { blue:'bg-blue-500', green:'bg-green-500', red:'bg-red-500', purple:'bg-purple-500' };
+  const circle = colors[color] || 'bg-gray-400';
+  return (
+    <div className="card">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <div className={`w-8 h-8 ${circle} rounded-full flex items-center justify-center`}><span className="text-white font-bold">{short}</span></div>
+        </div>
+        <div className="ml-4">
+          <div className="text-sm font-medium text-gray-500">{label}</div>
+          <div className="text-2xl font-bold text-gray-900">{value}</div>
+        </div>
+      </div>
+    </div>
+  );
 };
+const Th = ({ children }) => <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{children}</th>;
+const Td = ({ children }) => <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{children}</td>;
+const Input = ({ label, type='text', value, onChange, required=false }) => (<div><label className="block text-sm font-medium text-gray-700 mb-1">{label}</label><input type={type} required={required} className="form-input" value={value} onChange={e=>onChange(e.target.value)} /></div>);
+const SimpleTable = ({ rows, onPred, onPres }) => (
+  <div className="overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50"><tr><Th>Name</Th><Th>Email</Th><Th>Predictions</Th><Th>Actions</Th></tr></thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {rows.map(r => (
+          <tr key={r.id}>
+            <Td>{r.name}</Td><Td>{r.email}</Td><Td>{r.prediction_count || 0}</Td>
+            <Td>
+              <button onClick={()=>onPred(r.id)} className="text-blue-600 hover:text-blue-900 mr-3">Predictions</button>
+              <button onClick={()=>onPres(r.id)} className="text-green-600 hover:text-green-900">Prescriptions</button>
+            </Td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+);
 
 export default DoctorDashboard;

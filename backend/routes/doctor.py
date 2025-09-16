@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, make_response
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User, Prediction, Prescription
 from routes.auth import generate_password
 from datetime import datetime, date
@@ -8,8 +9,9 @@ import io
 doctor_bp = Blueprint('doctor', __name__)
 
 @doctor_bp.route('/patients', methods=['GET'])
+@jwt_required()
 def get_patients():
-    """Get list of all patients (simplified - no auth)"""
+    """Get list of all patients (requires authentication)"""
     try:
         patients = User.query.filter_by(role='user').all()
 
@@ -29,8 +31,9 @@ def get_patients():
         return jsonify({'error': str(e)}), 500
 
 @doctor_bp.route('/register-patient', methods=['POST'])
+@jwt_required()
 def register_patient():
-    """Register a new patient (simplified - no auth)"""
+    """Register a new patient (requires authentication)"""
     try:
         data = request.get_json()
 
@@ -86,6 +89,7 @@ def register_patient():
         return jsonify({'error': str(e)}), 500
 
 @doctor_bp.route('/patients/<int:patient_id>/predictions', methods=['GET'])
+@jwt_required()
 def get_patient_predictions(patient_id):
     """Get predictions for a specific patient"""
     try:
@@ -112,6 +116,7 @@ def get_patient_predictions(patient_id):
         return jsonify({'error': str(e)}), 500
 
 @doctor_bp.route('/patients/<int:patient_id>/predictions/export', methods=['GET'])
+@jwt_required()
 def export_patient_predictions(patient_id):
     """Export patient predictions as CSV"""
     try:
@@ -162,6 +167,7 @@ def export_patient_predictions(patient_id):
         return jsonify({'error': str(e)}), 500
 
 @doctor_bp.route('/patients/<int:patient_id>/prescriptions', methods=['POST', 'GET'])
+@jwt_required()
 def manage_prescriptions(patient_id):
     """Create/update or get prescriptions for a patient"""
     try:

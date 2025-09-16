@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
 const PrescriptionView = () => {
@@ -7,22 +8,28 @@ const PrescriptionView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchPrescriptions();
-  }, []);
-
-  const fetchPrescriptions = async () => {
+  const fetchPrescriptions = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await api.getPrescriptions(user.id);
       setPrescriptions(response.data.prescriptions);
     } catch (error) {
       console.error('Error fetching prescriptions:', error);
-      setError('Failed to load prescriptions');
+      if (error.response?.status !== 401) {
+        setError('Failed to load prescriptions');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchPrescriptions();
+    }
+  }, [user?.id, fetchPrescriptions]);
 
   const isExpired = (expiryDate) => {
     if (!expiryDate) return false;
@@ -122,7 +129,7 @@ const PrescriptionView = () => {
                 You don't have any prescriptions from your doctor yet. When your doctor creates a prescription for you, it will appear here.
               </p>
               <button
-                onClick={() => window.location.href = '/patient'}
+                onClick={() => navigate('/patient')}
                 className="btn-primary"
               >
                 Back to Dashboard
