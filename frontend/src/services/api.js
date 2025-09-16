@@ -74,19 +74,18 @@ class ApiService {
     return this.get(`/doctor/patients/${patientId}/predictions`);
   }
 
-  async createPrescription(patientId, prescriptionData) {
-    return this.post(`/doctor/patients/${patientId}/prescriptions`, prescriptionData);
-  }
-
   async exportPredictions(patientId) {
-    const response = await this.get(`/doctor/patients/${patientId}/predictions/export`, {
+    return this.get(`/doctor/patients/${patientId}/predictions/export`, {
       responseType: 'blob'
     });
-    return response;
   }
 
-  async getDoctorPatientPrescriptions(patientId) {
+  async getPatientPrescriptions(patientId) {
     return this.get(`/doctor/patients/${patientId}/prescriptions`);
+  }
+
+  async addOrUpdatePrescription(patientId, data) {
+    return this.post(`/doctor/patients/${patientId}/prescriptions`, data);
   }
 
   // Patient specific methods
@@ -97,7 +96,6 @@ class ApiService {
   async makePredictionWithFile(file) {
     const formData = new FormData();
     formData.append('file', file);
-
     return this.post('/patients/predict', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

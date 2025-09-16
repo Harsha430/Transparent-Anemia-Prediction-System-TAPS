@@ -177,9 +177,13 @@ const PatientDashboard = () => {
                     <div key={prescription.id} className="border-l-4 border-green-500 pl-4 py-2">
                       <div className="font-medium text-gray-900">{prescription.title}</div>
                       <div className="text-sm text-gray-600 mt-1">
-                        {prescription.medications?.length > 0 && (
-                          <div>Medications: {prescription.medications.join(', ')}</div>
-                        )}
+                        <div>
+                          Medications: {
+                            Array.isArray(prescription.medications)
+                              ? prescription.medications.join(', ')
+                              : prescription.medications || 'None'
+                          }
+                        </div>
                       </div>
                       <div className="text-xs text-gray-400 mt-1">
                         Prescribed: {new Date(prescription.prescribed_at).toLocaleDateString()}

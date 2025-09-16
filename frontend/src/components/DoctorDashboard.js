@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import XAIExplanation from './XAIExplanation';
 
 
 /**************** Wrapper Router ****************/
@@ -73,7 +74,7 @@ const PatientList = () => {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ patient_name:'', patient_email:'', gender:'', dob:'' });
+  const [form, setForm] = useState({ patient_name:'', patient_email:'', gender:'', dob:'', password:'' });
   const [error, setError] = useState('');
 
   useEffect(()=>{ user?.role==='doctor' ? init() : setLoading(false); },[user]);
@@ -91,7 +92,15 @@ const PatientList = () => {
 
   const submit = async e => {
     e.preventDefault(); setError('');
-    try { await api.registerPatient(form); setShowForm(false); setForm({patient_name:'',patient_email:'',gender:'',dob:''}); await loadPatients(); }
+    try {
+      const res = await api.registerPatient(form);
+      setShowForm(false);
+      setForm({patient_name:'',patient_email:'',gender:'',dob:'',password:''});
+      await loadPatients();
+      if (res.data && res.data.temporary_password) {
+        alert(`Patient registered! Password: ${res.data.temporary_password}`);
+      }
+    }
     catch(e){ setError(e.response?.data?.error || 'Registration failed'); }
   };
 
@@ -112,23 +121,31 @@ const PatientList = () => {
         {showForm && (
           <div className="card mb-8">
             <h3 className="text-lg font-bold text-gray-900 mb-4">Register New Patient</h3>
-            <form onSubmit={submit} className="space-y-4">
-              <Input label="Patient Name" value={form.patient_name} onChange={v=>setForm({...form,patient_name:v})} required />
-              <Input label="Email" type="email" value={form.patient_email} onChange={v=>setForm({...form,patient_email:v})} required />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select className="form-input" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})}>
-                  <option value="">Select Gender</option>
-                  <option value="0">Female</option>
-                  <option value="1">Male</option>
-                </select>
+            <form className="mt-8 space-y-6" onSubmit={submit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label>
+                  <input type="text" name="patient_name" value={form.patient_name} onChange={e=>setForm({...form,patient_name:e.target.value})} placeholder="Enter patient name" required className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Patient Email</label>
+                  <input type="email" name="patient_email" value={form.patient_email} onChange={e=>setForm({...form,patient_email:e.target.value})} placeholder="Enter patient email" required className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  <input type="text" name="gender" value={form.gender} onChange={e=>setForm({...form,gender:e.target.value})} placeholder="0=Female, 1=Male" required className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                  <input type="date" name="dob" value={form.dob} onChange={e=>setForm({...form,dob:e.target.value})} required className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Set Password <span className="text-gray-400">(optional)</span></label>
+                  <input type="text" name="password" value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Enter password or leave blank" className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
               </div>
-              <Input label="Date of Birth (Optional)" type="date" value={form.dob} onChange={v=>setForm({...form,dob:v})} />
-              {error && <div className="alert-error">{error}</div>}
-              <div className="flex gap-4 pt-2">
-                <button type="submit" className="btn-primary">Register</button>
-                <button type="button" onClick={()=>setShowForm(false)} className="btn-secondary">Cancel</button>
-              </div>
+              <button type="submit" className="btn-primary w-full mt-4">Register Patient</button>
+              {error && <p className="text-red-500 mt-2">{error}</p>}
             </form>
           </div>
         )}
@@ -161,9 +178,183 @@ const PatientList = () => {
   );
 };
 
-/**************** Placeholders ****************/
-const PatientPredictions = () => { const { patientId } = useParams(); return <div className="p-6">Predictions for patient #{patientId}</div>; };
-const PatientPrescriptions = () => { const { patientId } = useParams(); return <div className="p-6">Prescriptions for patient #{patientId}</div>; };
+/**************** Patient Predictions ****************/
+const PatientPredictions = () => {
+  const { patientId } = useParams();
+  const { user } = useAuth();
+  const [latestPrediction, setLatestPrediction] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user?.role === 'doctor') {
+      loadPredictions();
+    } else {
+      setLoading(false);
+    }
+  }, [user, patientId]);
+
+  const loadPredictions = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await api.getPatientPredictions(patientId);
+      const predictions = data.predictions || [];
+      setLatestPrediction(predictions.length ? predictions[0] : null);
+    } catch (e) {
+      setError('Failed to fetch predictions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!user) return <Centered msg="Please log in." />;
+  if (user.role !== 'doctor') return <Centered msg="Unauthorized." />;
+  if (loading) return <Centered msg="Loading predictions..." />;
+  if (error) return <Centered msg={error} />;
+
+  return (
+    <div className="max-w-2xl mx-auto py-6">
+      <h2 className="text-2xl font-bold mb-6">Latest Prediction for Patient #{patientId}</h2>
+      {latestPrediction ? (
+        <div className="card p-6">
+          <div className="mb-4">
+            <strong>Date:</strong> {latestPrediction.created_at ? new Date(latestPrediction.created_at).toLocaleString() : '-'}
+          </div>
+          <div className="mb-4">
+            <strong>Result:</strong> <span className={latestPrediction.result === 'Anaemia' ? 'text-red-600 font-bold' : 'text-green-600 font-bold'}>{latestPrediction.result}</span>
+          </div>
+          {latestPrediction.confidence && (
+            <div className="mb-4">
+              <strong>Confidence:</strong> {latestPrediction.confidence}%
+            </div>
+          )}
+          {latestPrediction.risk_level && (
+            <div className="mb-4">
+              <strong>Risk Level:</strong> {latestPrediction.risk_level}
+            </div>
+          )}
+          {latestPrediction.clinical_summary && (
+            <div className="mb-4">
+              <strong>Clinical Summary:</strong> {latestPrediction.clinical_summary}
+            </div>
+          )}
+          {latestPrediction.explanation && (
+            <div className="mt-6">
+              <XAIExplanation explanation={latestPrediction.explanation} />
+            </div>
+          )}
+        </div>
+      ) : <p className="text-gray-500">No predictions found for this patient.</p>}
+    </div>
+  );
+};
+
+/**************** Patient Prescriptions ****************/
+const PatientPrescriptions = () => {
+  const { patientId } = useParams();
+  const { user } = useAuth();
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ title: '', medications: '', notes: '' });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (user?.role === 'doctor') {
+      loadPrescriptions();
+    } else {
+      setLoading(false);
+    }
+  }, [user, patientId]);
+
+  const loadPrescriptions = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await api.getPatientPrescriptions(patientId);
+      setPrescriptions(data.prescriptions || []);
+    } catch (e) {
+      setError('Failed to fetch prescriptions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitPrescription = async e => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    try {
+      await api.addOrUpdatePrescription(patientId, form);
+      setForm({ title: '', medications: '', notes: '' });
+      setShowForm(false);
+      await loadPrescriptions();
+    } catch (e) {
+      setError('Failed to submit prescription: ' + (e.response?.data?.error || 'Unknown error'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!user) return <Centered msg="Please log in." />;
+  if (user.role !== 'doctor') return <Centered msg="Unauthorized." />;
+  if (loading) return <Centered msg="Loading prescriptions..." />;
+  if (error) return <Centered msg={error} />;
+
+  return (
+    <div className="max-w-4xl mx-auto py-6">
+      <h2 className="text-2xl font-bold mb-6">Prescriptions for Patient #{patientId}</h2>
+      <button className="btn-primary mb-4" onClick={()=>setShowForm(!showForm)}>
+        {showForm ? 'Cancel' : 'Add/Update Prescription'}
+      </button>
+      {showForm && (
+        <div className="card mb-6">
+          <form onSubmit={submitPrescription} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title<span className="text-red-500">*</span></label>
+              <input type="text" value={form.title} onChange={e=>setForm({...form, title: e.target.value})} required className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Prescription title" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Medications</label>
+              <input type="text" value={form.medications} onChange={e=>setForm({...form, medications: e.target.value})} className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter medications" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea value={form.notes} onChange={e=>setForm({...form, notes: e.target.value})} className="input w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Additional notes" />
+            </div>
+            <button type="submit" className="btn-primary w-full" disabled={submitting}>{submitting ? 'Submitting...' : 'Save Prescription'}</button>
+          </form>
+        </div>
+      )}
+      <div className="card">
+        {prescriptions.length ? (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <Th>Date</Th>
+                <Th>Title</Th>
+                <Th>Medications</Th>
+                <Th>Notes</Th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {prescriptions.map(pres => (
+                <tr key={pres.id}>
+                  <Td>{pres.created_at ? new Date(pres.created_at).toLocaleString() : '-'}</Td>
+                  <Td>{pres.title}</Td>
+                  <Td>{pres.medications}</Td>
+                  <Td>{pres.notes}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="text-gray-500">No prescriptions found for this patient.</p>}
+      </div>
+    </div>
+  );
+};
 
 /**************** Helpers ****************/
 const Centered = ({ msg }) => (<div className="flex justify-center items-center h-64"><div className="text-lg">{msg}</div></div>);

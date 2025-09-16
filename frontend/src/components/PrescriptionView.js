@@ -86,14 +86,17 @@ const PrescriptionView = () => {
                     </div>
                   </div>
 
-                  {prescription.medications && prescription.medications.length > 0 && (
+                  {prescription.medications && (
                     <div className="mb-4">
                       <h4 className="font-medium text-gray-900 mb-2">Medications:</h4>
                       <div className="bg-blue-50 rounded-lg p-4">
                         <ul className="list-disc list-inside space-y-1">
-                          {prescription.medications.map((medication, index) => (
-                            <li key={index} className="text-blue-800">{medication}</li>
-                          ))}
+                          {Array.isArray(prescription.medications)
+                            ? prescription.medications.map((medication, index) => (
+                                <li key={index} className="text-blue-800">{medication}</li>
+                              ))
+                            : <li className="text-blue-800">{prescription.medications || 'None'}</li>
+                          }
                         </ul>
                       </div>
                     </div>

@@ -47,8 +47,8 @@ def register_patient():
         if User.query.filter_by(email=data['patient_email']).first():
             return jsonify({'error': 'Email already registered'}), 400
 
-        # Generate password for patient
-        temp_password = generate_password()
+        # Use provided password or generate one
+        temp_password = data.get('password') or generate_password()
 
         # Parse date of birth if provided
         dob = None
