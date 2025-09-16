@@ -1,0 +1,218 @@
+{
+  "info": {
+    "name": "Anemia Prediction API",
+    "description": "API endpoints for the Anemia Prediction System",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Doctor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Dr. Jane Smith\",\n  \"email\": \"jane.smith@hospital.com\",\n  \"password\": \"securepassword123\",\n  \"hospital\": \"City General Hospital\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register-doctor",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register-doctor"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"doctor@hospital.com\",\n  \"password\": \"doctor123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Doctor Endpoints",
+      "item": [
+        {
+          "name": "Get Patients",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/doctor/patients",
+              "host": ["{{base_url}}"],
+              "path": ["doctor", "patients"]
+            }
+          }
+        },
+        {
+          "name": "Register Patient",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_name\": \"Alice Johnson\",\n  \"patient_email\": \"alice.johnson@email.com\",\n  \"gender\": 0,\n  \"dob\": \"1985-06-15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/doctor/register-patient",
+              "host": ["{{base_url}}"],
+              "path": ["doctor", "register-patient"]
+            }
+          }
+        },
+        {
+          "name": "Create Prescription",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{doctor_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Iron Deficiency Anemia Treatment\",\n  \"medications\": [\"Ferrous Sulfate 325mg\", \"Vitamin C 500mg\"],\n  \"notes\": \"Take iron supplement with vitamin C on empty stomach. Avoid dairy products within 2 hours.\",\n  \"expires_at\": \"2024-12-31\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/doctor/patients/1/prescriptions",
+              "host": ["{{base_url}}"],
+              "path": ["doctor", "patients", "1", "prescriptions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Patient Endpoints",
+      "item": [
+        {
+          "name": "Make Prediction (JSON)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"Gender\": 0,\n  \"Hemoglobin\": 9.0,\n  \"MCH\": 21.5,\n  \"MCHC\": 29.6,\n  \"MCV\": 71.2\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/patients/predict",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "predict"]
+            }
+          }
+        },
+        {
+          "name": "Get Prescriptions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/patients/1/prescriptions",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "1", "prescriptions"]
+            }
+          }
+        },
+        {
+          "name": "Get Patient Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{patient_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/patients/dashboard",
+              "host": ["{{base_url}}"],
+              "path": ["patients", "dashboard"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": ["{{base_url}}"],
+          "path": ["health"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000/api"
+    },
+    {
+      "key": "doctor_token",
+      "value": "your_doctor_jwt_token_here"
+    },
+    {
+      "key": "patient_token",
+      "value": "your_patient_jwt_token_here"
+    }
+  ]
+}
+
