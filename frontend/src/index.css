@@ -2,49 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles */
+/* ------------------------------------------------------------------
+   Global Theme & Typography
+------------------------------------------------------------------ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-full: 9999px;
+  --gradient-brand: linear-gradient(135deg,#9B51BC 0%,#7A1FA0 45%,#4A125E 100%);
+  --gradient-accent: linear-gradient(135deg,#E63946 0%,#B47BCE 100%);
+  --gradient-surface: radial-gradient(circle at 30% 30%, rgba(155,81,188,0.12), rgba(50,11,62,0));
+}
+
+html { scroll-behavior: smooth; }
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: #F8F5FA;
+  color: #1f1f29;
+}
+.dark body { background:#0B0E14; color: #E3D1EF; }
+
+/* Selection */
+::selection { background: #9B51BC; color:#fff; }
+
+/***************************** Reusable Primitives *****************************/
+@layer components {
+  .btn { @apply inline-flex items-center justify-center font-medium rounded-md transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-400 disabled:opacity-50 disabled:cursor-not-allowed gap-2 text-sm; }
+  .btn-primary { @apply btn bg-brand-600 text-white shadow-soft hover:bg-brand-700 active:bg-brand-800 focus-visible:ring-brand-500; }
+  .btn-accent { @apply btn bg-accent-500 text-white shadow-soft hover:bg-accent-600 active:bg-accent-700 focus-visible:ring-accent-400; }
+  .btn-secondary { @apply btn bg-slate-950/5 text-brand-700 hover:bg-brand-600 hover:text-white dark:bg-slate-950/40 dark:text-brand-100 dark:hover:bg-brand-500/60 dark:hover:text-white border border-brand-600/20 backdrop-blur-sm; }
+  .btn-outline { @apply btn border border-brand-500 text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-700/40 dark:text-brand-200 dark:border-brand-400; }
+  .btn-ghost { @apply btn text-brand-600 hover:bg-brand-50 dark:text-brand-200 dark:hover:bg-brand-700/40; }
+  .btn-danger { @apply btn bg-accent-600 text-white hover:bg-accent-700 focus-visible:ring-accent-400; }
+
+  .card { @apply relative bg-white dark:bg-slate-950/60 border border-brand-600/10 dark:border-brand-400/10 rounded-lg p-6 shadow-soft transition-shadow duration-300 hover:shadow-elevated; }
+  .card-glow { @apply card shadow-glow; }
+  .glass { @apply backdrop-blur-xl bg-white/70 dark:bg-slate-950/40 border border-white/30 dark:border-brand-400/10; }
+  .surface-muted { @apply bg-brand-50 dark:bg-slate-950/50; }
+  .surface-accent { @apply bg-gradient-to-br from-brand-500/10 via-brand-400/5 to-brand-600/10 dark:from-brand-700/30 dark:to-brand-500/10; }
+
+  .heading-xl { @apply text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-brand-600 via-brand-500 to-accent-500; }
+  .heading-xl-plain { @apply text-3xl md:text-4xl font-extrabold tracking-tight text-brand-700 dark:text-brand-200; }
+  .heading { @apply text-xl md:text-2xl font-bold text-brand-700 dark:text-brand-200; }
+  .subtle { @apply text-sm text-gray-500 dark:text-gray-400; }
+
+  .badge { @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-100 text-brand-700 dark:bg-brand-700/40 dark:text-brand-100; }
+  .badge-accent { @apply badge bg-accent-100 text-accent-700 dark:bg-accent-600/30 dark:text-white; }
+
+  .form-input { @apply w-full px-3 py-2 rounded-md bg-white/90 dark:bg-slate-950/40 border border-brand-600/20 dark:border-brand-400/20 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 placeholder-gray-400 dark:placeholder-brand-200/40 text-sm; }
+  .form-select { @apply form-input pr-8; }
+  .form-label { @apply block text-xs font-semibold tracking-wide uppercase text-brand-700 dark:text-brand-300 mb-1; }
+  .form-hint { @apply text-[11px] text-gray-500 dark:text-gray-400 mt-1; }
+
+  .alert-base { @apply rounded-md px-4 py-3 text-sm font-medium border; }
+  .alert-success { @apply alert-base bg-teal-50 border-teal-200 text-teal-800 dark:bg-teal-600/20 dark:text-teal-200 dark:border-teal-500/30; }
+  .alert-error { @apply alert-base bg-accent-50 border-accent-200 text-accent-700 dark:bg-accent-700/30 dark:text-accent-200 dark:border-accent-500/40; }
+  .alert-warning { @apply alert-base bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-600/30 dark:text-yellow-100 dark:border-yellow-500/40; }
+  .alert-info { @apply alert-base bg-brand-50 border-brand-200 text-brand-700 dark:bg-brand-700/30 dark:text-brand-100 dark:border-brand-500/40; }
+
+  .table-base { @apply min-w-full divide-y divide-brand-600/10 dark:divide-brand-400/10; }
+  .table-head { @apply bg-brand-50/70 dark:bg-slate-950/40; }
+  .table-head-cell { @apply px-6 py-3 text-left text-xs font-semibold tracking-wide text-brand-600 dark:text-brand-200 uppercase; }
+  .table-row { @apply bg-white dark:bg-slate-950/40 divide-y divide-brand-600/10 dark:divide-brand-400/10; }
+  .table-cell { @apply px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-200; }
+
+  .skeleton { @apply animate-pulse bg-brand-100 dark:bg-brand-700/30 rounded; }
+  .animate-fade-in { animation: fadeIn 0.4s ease-out; }
+
+  .auth-panel { @apply glass bg-slate-950/40 dark:bg-slate-950/40 backdrop-blur-2xl border border-white/10 dark:border-brand-600/20 shadow-elevated; }
+  .auth-input { @apply form-input bg-white/95 dark:bg-slate-900/70 border border-brand-600/20 dark:border-brand-600/30 text-gray-800 dark:text-brand-100 placeholder-gray-400 dark:placeholder-brand-300/40 focus:ring-brand-500; }
+  .auth-input-dark { @apply form-input bg-slate-900/80 border border-brand-600/40 text-brand-100 placeholder-brand-300/40 focus:ring-brand-500; }
+  .auth-button-primary { @apply btn-primary bg-brand-600 hover:bg-brand-700 active:bg-brand-800 shadow-soft; }
+  .auth-test-btn { @apply btn-outline h-10 text-xs font-medium border-brand-500/40 text-brand-200 hover:text-white hover:bg-brand-600/40 dark:border-brand-500/40; }
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
+/* Hero / Auth Background */
+.auth-bg { background: radial-gradient(circle at 20% 20%, rgba(155,81,188,0.25), rgba(123,31,160,0) 60%), linear-gradient(135deg,#320B3E,#4A125E,#7A1FA0); }
+.dark .auth-bg { background: radial-gradient(circle at 20% 20%, rgba(155,81,188,0.35), rgba(123,31,160,0) 60%), linear-gradient(135deg,#0B0E14,#320B3E,#4A125E); }
 
-.btn-primary {
-  @apply bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors;
-}
+/* Utility refinements */
+.shadow-inner-glow { box-shadow: 0 0 0 1px rgba(155,81,188,0.25), 0 0 0 4px rgba(155,81,188,0.08); }
 
-.btn-secondary {
-  @apply bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 transition-colors;
-}
+/* Scrollbar styling (Webkit) */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: linear-gradient(#9B51BC,#7A1FA0); border-radius: 20px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(#B47BCE,#7A1FA0); }
 
-.btn-danger {
-  @apply bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors;
-}
+/* Motion */
+@keyframes fadeIn { 0% { opacity:0; transform: translateY(4px);} 100% { opacity:1; transform: translateY(0);} }
 
-.form-input {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500;
-}
+/* Old legacy classes (kept for backward compatibility) */
+.btn-primary-old { @apply bg-blue-600 text-white; }
 
-.card {
-  @apply bg-white rounded-lg shadow-md p-6 border;
-}
-
-.alert-success {
-  @apply bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded;
-}
-
-.alert-error {
-  @apply bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded;
-}
-
-.alert-warning {
-  @apply bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded;
-}
+/* End of design system */
